@@ -14,8 +14,26 @@
 #define MAX 510
 //#define EXIT_FAILURE exit(1) //warning
 
-void ma() 
+
+//---------------------FUNCTION & global-----------------------------------------------------------------------------------------------
+int temp_global_var = 0;
+	 
+	int if_there_is_pipe_in_wich_cell_is_it = 0;
+	 
+    int checkpipe(char **commands, int num_of_cmd);
+	
+	void ma();
+//----------------------------------------------------------------------------------------------------------------------------
+int main()
 {
+	ma();
+	
+    return 0;
+}	 
+
+
+void ma() 
+{	
     struct passwd *p;
 	uid_t id = 0;
     p = getpwuid(id);
@@ -31,65 +49,41 @@ void ma()
     char buf[BUFSIZ];
     int stat_loc;
 	
-    char **commandArray; char **commandArray_pipe;
-    int count = 0, i = 0 ,numOfCommands = 0,lengthOfCommands = 0;
+    char **commandArray;
+	char **first_half_of_commandArray;
+	char **second_half_of_commandArray;	
+    
+	int count = 0, i = 0 ,numOfCommands = 0,lengthOfCommands = 0;
     int cmd = 1;
-	int cnt_pipe = 0;
-	
+
 	int pipe_fd[2];
-     
+	 
      printf("%s@%s>", p->pw_name,getcwd(buf,sizeof(buf)));//prompt line
 	 fgets(temp,MAX,stdin);//scan cmd
      
+temp_global_var++;
+	 
+	 
     while (strcmp(temp,"done\n")) //loop till "done"
     {
+			
          strcpy(userInput,temp); //cloning the users input for later use
 	     strcpy(userInput2,temp);
-	     strcpy(userInput3,temp);		
-		
-		commandArray_pipe = (char**)malloc((cnt_pipe+1)*sizeof(char*));//ary in the cmd size
-	        if(!commandArray_pipe)//exit if  failed
-            {
-                printf("ERR");
-                exit(1);
-            }
-		
-	   commandArray = (char**)malloc((count+1)*sizeof(char*));//ary in the cmd size
-	        if(!commandArray)//exit if  failed
-            {
-                printf("ERR");
-                exit(1);
-            }
-			
-			
-		 ptr = strtok(userInput3,"|"); //checks if there is any "|"
-	     while(ptr3)//ptr!=null
-	     {
-		    cnt_pipe++;
-		    ptr3 = strtok(NULL,"|");
-	     }
-		   
-		 
-         ptr = strtok(userInput,"\" \n");//WORD COUNTER
+	   
+//---------------------CMD ARRAY---------------------------------------------------------------------------------------------
+		 ptr = strtok(userInput,"\" \n");//WORD COUNTER
          count=0;
 	     while(ptr)//ptr!=null
 	     {
 		    count++;
 		    ptr = strtok(NULL,"\" \n");//igmore ' " '& '\n'
 	     }
-		 
-	  ptr3 = strtok(userInput3,"|");//if pipe 
-      int q = 0;	
-      while(i < cnt_pipe)
-	  {
-        commandArray_pipe[q]= (char*)malloc((strlen(ptr3))*sizeof(char));
-		commandArray_pipe[q]=ptr3;
-		ptr3 = strtok(NULL,"|");
-		q++;
-	  }
-      commandArray_pipe[q]=NULL;
-		
-		
+		commandArray = (char**)malloc((count+1)*sizeof(char*));//ary in the cmd size
+	        if(!commandArray)//exit if  failed
+            {printf("ERR");   exit(1);}
+			
+//---------------------------------------------------------------------------------------------------------------------------		
+	
 	   ptr2 = strtok(userInput2,"\" \n");//commands -> to array
        i=0;	
       while(i<count)
@@ -99,26 +93,59 @@ void ma()
 		ptr2 = strtok(NULL,"\" \n");
 		i++;
 	  }
-      commandArray[i]=NULL;
-	
+      commandArray[i]=NULL;//last cell
+
+//------------------IS THERE A PIPE--------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------------------------------
 	  if(strcmp(commandArray[0],"cd"))//if cmd != "cd"						
       {
 		child_pid = fork();//create son only when cmd != "cd"
 		if(child_pid < 0)//check if failed
-		{
-			printf("ERR\n");
-			exit(1);}
+		{printf("ERR\n");	exit(1);}
+		
 		else if (child_pid == 0)//if son
 		{   
-			if(cnt_pipe > 1)//if there is pipe ("|")
+//------------------------IF WE'VE GOT A PIPE-------------------------------------------------------------
+			if(checkpipe(commandArray, count) == 0)//if there is pipe ("|")
 			{
-				pipe(pipe_fd);
+printf("\nIN PIPE CMD\n");
+				//***now  i have to split the commandArray to 2 arrays in order to activate execvp 	
+		//----the 2 halfs of the cmd ary--> left/right to the pipe-------------------|
+				first_half_of_commandArray = (char**)malloc((if_there_is_pipe_in_wich_cell_is_it)*sizeof(char*));
+				if(!first_half_of_commandArray)//exit if  failed
+				{printf("ERR");   exit(1);}
 				
+				second_half_of_commandArray = (char**)malloc((count - if_there_is_pipe_in_wich_cell_is_it)*sizeof(char*));
+				if(!second_half_of_commandArray)//exit if  failed
+				{printf("ERR");   exit(1);}
+				
+				{
+				int i1;
+				for(i1 = 0; i1 < if_there_is_pipe_in_wich_cell_is_it; i1++)
+				{
+					first_half_of_commandArray[i1]= (char*)malloc(*commandArray[i1]);
+					if(!first_half_of_commandArray[i1])//exit if  failed
+					{printf("ERR");   exit(1);}
+					first_half_of_commandArray[i1] = commandArray[i1];
+				}
+				first_half_of_commandArray[i1];//last cell = NULL
+				
+				//run from "|" till the last cell in commandArray
+				int i2;
+				for(i2 = if_there_is_pipe_in_wich_cell_is_it+1; i2 < count; i2++)
+				{
+					second_half_of_commandArray[i2]= (char*)malloc(*commandArray[i2]);
+					if(!second_half_of_commandArray[i2])//exit if  failed
+					{printf("ERR");   exit(1);}
+					second_half_of_commandArray[i2] = commandArray[i2];
+				}
+				second_half_of_commandArray[i2];//last cell = NULL
+		//----------------------------------------------------------------|
+				pipe(pipe_fd);
 				child_pid = fork();
 				if(child_pid < 0)//check if failed
-				{
-					printf("ERR\n");
-					exit(1);}
+				{printf("ERR\n");	exit(1);}
 
 				if(child_pid == 0)//if sons son
 				{
@@ -127,7 +154,7 @@ void ma()
 					// close unused hald of pipe
 					close(pipe_fd[1]);
 					// execute right cmd
-					execvp(commandArray_pipe[0], commandArray_pipe);
+					execvp(first_half_of_commandArray[0], first_half_of_commandArray);
 				}
 				
 				else{//if is son
@@ -138,21 +165,22 @@ void ma()
 						// close unused unput half of pipe
 						close(pipe_fd[0]);
 						// execute left cmd
-						execvp(commandArray_pipe[1], commandArray_pipe);
+						execvp(second_half_of_commandArray[1], second_half_of_commandArray);
 						}
 				}//end of "if pipe"	
-					
-			}	
-				else if(cnt_pipe < 2)		
+			}				
+		}
+//--------------------------------------------------------------------------------------------------------			
+				else if(checkpipe(commandArray, count) == -1)	
 				{
+printf("in non cd non pipe cmd");
 					execvp(commandArray[0], commandArray);//commance the command given-> if failed will print
 					printf("ERR\n");
 					exit(1); 
-					cmd = 0;
+					//cmd = 0;
 				}
 			} 
 	  }
-		
 		else //if papa
 			{	
 			if(!strcmp(commandArray[0],"cd"))//change directory						
@@ -172,12 +200,13 @@ void ma()
         {
              for(int i = 0; i < count; i++ )
                 free(commandArray[i]);
-             
-			 for(int i = 0; i < cnt_pipe; i++ )
+            /* 
+			 for(int i = 0; i < cnt_pipe; i++ ) //FREE ALL THE ARRAYS!!! DONT FORGET second_half_of_commandArray
                 free(commandArray_pipe[i]);
 			 free(commandArray);
 			 free(commandArray_pipe);
-        }
+			*/
+		}
     if(cmd)//count commands
     {
 		if(strcmp(commandArray[0],"cd"))
@@ -186,20 +215,40 @@ void ma()
         lengthOfCommands+= strlen(commandArray[0]);
 		}
     }
+	
+printf("\n** %d **\n", if_there_is_pipe_in_wich_cell_is_it);	
       printf("%s@%s>", p->pw_name,getcwd(buf,sizeof(buf)));//prompt line
 	  fgets(temp,MAX,stdin);//inloop input    
-    }
+    
+	}
 	
     printf("Num of cmd: %d\nCmd length: %d\nBye !\n",numOfCommands,lengthOfCommands);//when "done" typed
-   
     exit(0);
 }
+///--------------------------------------------------------------
+	//there is no way that | will come with " ", so strtok must saparate it as a word by himself
+	int checkpipe(char **commands, int num_of_cmd)//commands = commandArray // cmd_size = count
+	{
+		for(int i=0;i<num_of_cmd;i++)
+		{ 
+			if(!(strcmp(commands[i],"|")))//if there is '|'
+			{
+				if_there_is_pipe_in_wich_cell_is_it = i;//thats how we'll know where is the "|"
+//printf("\n returning '0' in checkpipe");
+				return 0;
+			}	
+printf("\ntemp_global_var: %d\n",temp_global_var);
+			if_there_is_pipe_in_wich_cell_is_it++;//that is how we know in wich cell is |
+printf("\n** %d **\n", if_there_is_pipe_in_wich_cell_is_it);
+		}	
+//printf("\n** %d **\n", if_there_is_pipe_in_wich_cell_is_it);		
+		return -1;
+	}	
+///--------------------------------------------------------------
 
-int main()
-{
-	ma();
-	
-    return 0;
-}
+
+
+
+
 
 
